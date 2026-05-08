@@ -1,113 +1,126 @@
 <!DOCTYPE html>
-<html lang="si">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Meeting Assistant - Dilshan</title>
+    <title>Dilshan's Pro Meeting Tool</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: #1e1e1e; padding: 30px; border-radius: 12px; border: 1px solid #333; }
-        h1 { color: #bb86fc; text-align: center; font-size: 22px; }
-        .status { padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 20px; font-weight: bold; background: #333; }
-        .recording { border: 1px solid #03dab6; color: #03dab6; box-shadow: 0 0 10px rgba(3, 218, 182, 0.2); }
+        :root { --accent: #00ff88; --bg: #0f172a; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: #f1f5f9; padding: 20px; }
+        .main-card { max-width: 1000px; margin: auto; background: #1e293b; padding: 30px; border-radius: 20px; border: 1px solid #334155; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 15px; }
+        #status-light { width: 15px; height: 15px; border-radius: 50%; background: #ef4444; display: inline-block; box-shadow: 0 0 10px #ef4444; }
+        .active-light { background: var(--accent) !important; box-shadow: 0 0 15px var(--accent) !important; }
         #output { 
-            width: 100%; min-height: 400px; padding: 15px; border: 1px solid #444; 
-            border-radius: 8px; background: #252525; font-size: 18px; line-height: 1.8;
-            overflow-y: auto; white-space: pre-wrap; box-sizing: border-box; outline: none;
+            width: 100%; min-height: 500px; margin-top: 20px; padding: 20px; 
+            background: #020617; border-radius: 12px; border: 1px solid #475569;
+            font-size: 19px; line-height: 1.8; color: #cbd5e1; overflow-y: auto; outline: none;
         }
-        .controls { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
-        button { padding: 12px 20px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .start { background: #bb86fc; color: #000; }
-        .copy { background: #03dab6; color: #000; }
-        .clear { background: #cf6679; color: #fff; }
+        .btn-group { margin: 20px 0; display: flex; gap: 10px; }
+        button { padding: 12px 25px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-go { background: var(--accent); color: #000; }
+        .btn-copy { background: #38bdf8; color: #000; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>SMART TRANSCRIPT ENGINE v2</h1>
-    <div id="status" class="status">System Ready</div>
-    
-    <div class="controls">
-        <button id="startBtn" class="start">START ENGINE</button>
-        <button id="copyBtn" class="copy">COPY FOR MINUTES</button>
-        <button id="clearBtn" class="clear">CLEAR</button>
+<div class="main-card">
+    <div class="header">
+        <h2>PRO TRANSCRIPTION <span id="status-text" style="font-size: 14px; color: #94a3b8;">- READY</span></h2>
+        <div id="status-light"></div>
     </div>
 
-    <div id="output" contenteditable="true">Listening for Sinhala & English...</div>
+    <div class="btn-group">
+        <button id="startBtn" class="btn-go">ACTIVATE ENGINE</button>
+        <button id="copyBtn" class="btn-copy">COPY MINUTES</button>
+        <button id="clearBtn" style="background:#f43f5e; color:white;">RESET</button>
+    </div>
+
+    <div id="output" contenteditable="true" placeholder="Waiting for audio..."></div>
 </div>
 
 <script>
     const output = document.getElementById('output');
-    const status = document.getElementById('status');
     const startBtn = document.getElementById('startBtn');
-    
+    const light = document.getElementById('status-light');
+    const statusText = document.getElementById('status-text');
+
     let recognition;
-    let isActive = false;
+    let isRunning = false;
+    let lastTranscript = "";
 
     if (!('webkitSpeechRecognition' in window)) {
-        alert("Chrome Browser Required");
+        alert("Please use Chrome Browser.");
     } else {
         recognition = new webkitSpeechRecognition();
         recognition.continuous = true;
-        recognition.interimResults = true;
-        // Basha dekama pick karanna 'en-IN' (Indian English) godak welawata 'en-US' ta wada Sinhala acccent ekata galapenawa
-        recognition.lang = 'en-IN'; 
+        recognition.interimResults = false; // Meka false kale ekama wachane thun-sere type wena eka nawaththanna
+        recognition.lang = 'en-US'; 
 
         recognition.onstart = () => {
-            isActive = true;
-            status.innerText = "ENGINE RUNNING...";
-            status.className = "status recording";
+            isRunning = true;
+            light.classList.add('active-light');
+            statusText.innerText = "- LISTENING";
         };
 
         recognition.onresult = (event) => {
-            let final = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    final += event.results[i][0].transcript + '. ';
-                }
+            let current = event.results[event.results.length - 1][0].transcript.trim();
+            
+            // Duplicate text filtering - check if it's the same as the last sentence
+            if (current !== lastTranscript) {
+                output.innerText += current + ". ";
+                lastTranscript = current;
+                output.scrollTop = output.scrollHeight;
+                
+                // Auto-save to local storage
+                localStorage.setItem('meeting_data', output.innerText);
             }
-            if (final) {
-                output.innerText += final;
-                // Scroll to bottom
-                window.scrollTo(0, document.body.scrollHeight);
+        };
+
+        recognition.onend = () => {
+            if (isRunning) {
+                // Force Restart instantly if it stops itself
+                setTimeout(() => { recognition.start(); }, 50);
+            } else {
+                light.classList.remove('active-light');
+                statusText.innerText = "- STOPPED";
             }
         };
 
         recognition.onerror = (e) => {
-            console.log("Recognition Error: ", e.error);
-        };
-
-        recognition.onend = () => {
-            // MEKA THAMA SMART RESTART EKA:
-            // Mic eka disable unoth auto-detect karala 100ms walin aith on karanawa
-            if (isActive) {
-                console.log("Auto-Restarting...");
-                recognition.start();
-            }
+            console.log("Error caught: " + e.error);
+            if(e.error === 'network') alert("Check Internet Connection!");
         };
     }
 
     startBtn.onclick = () => {
-        if (!isActive) {
+        if (!isRunning) {
             recognition.start();
             startBtn.innerText = "STOP ENGINE";
         } else {
-            isActive = false;
+            isRunning = false;
             recognition.stop();
-            startBtn.innerText = "START ENGINE";
-            status.className = "status";
-            status.innerText = "System Stopped";
+            startBtn.innerText = "ACTIVATE ENGINE";
         }
     };
 
     document.getElementById('copyBtn').onclick = () => {
         navigator.clipboard.writeText(output.innerText);
-        alert("Copied!");
+        alert("Transcript Copied!");
     };
 
     document.getElementById('clearBtn').onclick = () => {
-        if(confirm("Clear transcript?")) output.innerText = "";
+        if(confirm("Clear everything?")) {
+            output.innerText = "";
+            localStorage.removeItem('meeting_data');
+        }
+    };
+
+    // Keep data if page refreshes
+    window.onload = () => {
+        if(localStorage.getItem('meeting_data')) {
+            output.innerText = localStorage.getItem('meeting_data');
+        }
     };
 </script>
 </body>
