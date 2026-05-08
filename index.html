@@ -1,138 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="si">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dilshan's Smart Meeting Assistant</title>
+    <title>AI Meeting Assistant - Dilshan</title>
     <style>
-        :root { --primary: #1a73e8; --bg: #f8f9fa; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        h1 { color: #333; font-size: 24px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 20px; }
-        .status-box { padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; transition: 0.3s; }
-        .active { background: #e6f4ea; color: #1e8e3e; border-left: 5px solid #1e8e3e; }
-        .idle { background: #fce8e6; color: #d93025; border-left: 5px solid #d93025; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: #1e1e1e; padding: 30px; border-radius: 12px; border: 1px solid #333; }
+        h1 { color: #bb86fc; text-align: center; font-size: 22px; }
+        .status { padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 20px; font-weight: bold; background: #333; }
+        .recording { border: 1px solid #03dab6; color: #03dab6; box-shadow: 0 0 10px rgba(3, 218, 182, 0.2); }
         #output { 
-            width: 100%; min-height: 450px; padding: 20px; border: 1px solid #ddd; 
-            border-radius: 10px; background: #fff; font-size: 18px; line-height: 1.8;
+            width: 100%; min-height: 400px; padding: 15px; border: 1px solid #444; 
+            border-radius: 8px; background: #252525; font-size: 18px; line-height: 1.8;
             overflow-y: auto; white-space: pre-wrap; box-sizing: border-box; outline: none;
         }
-        .toolbar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-        button { padding: 12px 24px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: 0.2s; }
-        .btn-start { background: var(--primary); color: white; }
-        .btn-stop { background: #5f6368; color: white; }
-        .btn-copy { background: #34a853; color: white; }
-        .btn-clear { background: #d93025; color: white; }
-        button:hover { opacity: 0.9; transform: translateY(-1px); }
-        button:disabled { background: #ccc; cursor: not-allowed; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+        button { padding: 12px 20px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .start { background: #bb86fc; color: #000; }
+        .copy { background: #03dab6; color: #000; }
+        .clear { background: #cf6679; color: #fff; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Smart Meeting Transcript <small style="font-size: 12px; font-weight: normal;">(Singlish + English Support)</small></h1>
+    <h1>SMART TRANSCRIPT ENGINE v2</h1>
+    <div id="status" class="status">System Ready</div>
     
-    <div id="status" class="status-box idle">Status: Ready to assist</div>
-
-    <div class="toolbar">
-        <button id="startBtn" class="btn-start">Start Assistant</button>
-        <button id="stopBtn" class="btn-stop" disabled>Stop Recording</button>
-        <button id="copyBtn" class="btn-copy">Copy for Gemini</button>
-        <button id="clearBtn" class="btn-clear">Clear All</button>
+    <div class="controls">
+        <button id="startBtn" class="start">START ENGINE</button>
+        <button id="copyBtn" class="copy">COPY FOR MINUTES</button>
+        <button id="clearBtn" class="clear">CLEAR</button>
     </div>
 
-    <div id="output" contenteditable="true" placeholder="Meeting text will appear here automatically..."></div>
+    <div id="output" contenteditable="true">Listening for Sinhala & English...</div>
 </div>
 
 <script>
     const output = document.getElementById('output');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
     const status = document.getElementById('status');
-    const copyBtn = document.getElementById('copyBtn');
-    const clearBtn = document.getElementById('clearBtn');
-
+    const startBtn = document.getElementById('startBtn');
+    
     let recognition;
-    let isRecording = false;
-
-    // Load saved data on startup
-    if (localStorage.getItem('saved_transcript')) {
-        output.innerText = localStorage.getItem('saved_transcript');
-    }
+    let isActive = false;
 
     if (!('webkitSpeechRecognition' in window)) {
-        alert("Please use Google Chrome for this tool to work!");
+        alert("Chrome Browser Required");
     } else {
         recognition = new webkitSpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'en-US'; // Singlish weda karanne English mode ekedi phonetically
+        // Basha dekama pick karanna 'en-IN' (Indian English) godak welawata 'en-US' ta wada Sinhala acccent ekata galapenawa
+        recognition.lang = 'en-IN'; 
 
         recognition.onstart = () => {
-            isRecording = true;
-            status.innerText = "Status: ACTIVE & LISTENING...";
-            status.className = "status-box active";
+            isActive = true;
+            status.innerText = "ENGINE RUNNING...";
+            status.className = "status recording";
         };
 
         recognition.onresult = (event) => {
-            let finalTranscript = '';
+            let final = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript + ' ';
+                    final += event.results[i][0].transcript + '. ';
                 }
             }
-            if (finalTranscript) {
-                output.innerText += finalTranscript;
-                localStorage.setItem('saved_transcript', output.innerText);
-                output.scrollTop = output.scrollHeight;
+            if (final) {
+                output.innerText += final;
+                // Scroll to bottom
+                window.scrollTo(0, document.body.scrollHeight);
             }
+        };
+
+        recognition.onerror = (e) => {
+            console.log("Recognition Error: ", e.error);
         };
 
         recognition.onend = () => {
-            // Smart Restart: Katha nokara hitiyoth hari, error ekak awoth hari restart karanawa
-            if (isRecording) {
-                console.log("Restarting to keep connection alive...");
+            // MEKA THAMA SMART RESTART EKA:
+            // Mic eka disable unoth auto-detect karala 100ms walin aith on karanawa
+            if (isActive) {
+                console.log("Auto-Restarting...");
                 recognition.start();
-            } else {
-                status.innerText = "Status: Stopped";
-                status.className = "status-box idle";
-            }
-        };
-
-        recognition.onerror = (event) => {
-            console.error("Speech Recognition Error:", event.error);
-            if (event.error === 'no-speech') {
-                console.log("No speech detected, keep waiting...");
             }
         };
     }
 
     startBtn.onclick = () => {
-        isRecording = true;
-        recognition.start();
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-    };
-
-    stopBtn.onclick = () => {
-        isRecording = false;
-        recognition.stop();
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-    };
-
-    copyBtn.onclick = () => {
-        navigator.clipboard.writeText(output.innerText);
-        alert("Copied! Paste this to Gemini to generate minutes.");
-    };
-
-    clearBtn.onclick = () => {
-        if(confirm("Are you sure? This will delete the entire transcript.")) {
-            output.innerText = "";
-            localStorage.removeItem('saved_transcript');
+        if (!isActive) {
+            recognition.start();
+            startBtn.innerText = "STOP ENGINE";
+        } else {
+            isActive = false;
+            recognition.stop();
+            startBtn.innerText = "START ENGINE";
+            status.className = "status";
+            status.innerText = "System Stopped";
         }
     };
-</script>
 
+    document.getElementById('copyBtn').onclick = () => {
+        navigator.clipboard.writeText(output.innerText);
+        alert("Copied!");
+    };
+
+    document.getElementById('clearBtn').onclick = () => {
+        if(confirm("Clear transcript?")) output.innerText = "";
+    };
+</script>
 </body>
 </html>
